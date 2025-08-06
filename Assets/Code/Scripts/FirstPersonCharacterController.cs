@@ -147,7 +147,6 @@ public class FirstPersonCharacterController : MonoBehaviour
     [Space(5)]
     public bool cursorActive = false;                // cursor state
 
-
     void Start()
     {
         Initialize();
@@ -155,6 +154,12 @@ public class FirstPersonCharacterController : MonoBehaviour
 
     void Update()
     {
+
+        // Test to understanding movement with Time.deltaTime and how it can create movement since the game world is stateful on each frame.
+        // float timeDiff = Time.deltaTime;
+        // Debug.Log("Frame #" + counter + " | Time Since Last Frame = " + timeDiff);
+        // transform.Rotate(0, 0, 2f * timeDiff);
+
         ProcessInputs();
         ProcessLook();
         ProcessMovement();
@@ -211,10 +216,13 @@ public class FirstPersonCharacterController : MonoBehaviour
         float mouseY = accMouseY * mouseSensitivityY * 100f * Time.deltaTime;
 
         // rotate camera X
-        xRotation += (invertLookY == true ? mouseY : -mouseY);
+        xRotation += invertLookY == true ? mouseY : -mouseY;
         xRotation = Mathf.Clamp(xRotation, -clampLookY, clampLookY);
 
         cameraTx.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+
+        // rotate player visual along up/down x axis
+        playerGFX.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
         // rotate player Y
         playerTx.Rotate(Vector3.up * mouseX);
@@ -231,12 +239,12 @@ public class FirstPersonCharacterController : MonoBehaviour
 
         // player current speed
         float currSpeed = (playerTx.position - lastPos).magnitude / Time.deltaTime;
-        currSpeed = (currSpeed < 0 ? 0 - currSpeed : currSpeed); // abs value
+        currSpeed = currSpeed < 0 ? 0 - currSpeed : currSpeed; // abs value
 
         // - Check if Grounded -
         GroundCheck();
 
-        isSlipping = (groundSlopeAngle > controller.slopeLimit ? true : false);
+        isSlipping = groundSlopeAngle > controller.slopeLimit ? true : false;
 
         // - Check Ceiling above for Head Room -
         CeilingCheck();
@@ -387,7 +395,7 @@ public class FirstPersonCharacterController : MonoBehaviour
 
             // - smooth speed -
             // take less time to slow down, more time speed up
-            float lerpFactor = (lastSpeed > nextSpeed ? 4f : 2f);
+            float lerpFactor = lastSpeed > nextSpeed ? 4f : 2f;
             speed = Mathf.Lerp(lastSpeed, nextSpeed, lerpFactor * Time.deltaTime);
         }
         else // no friction, speed changes slower
