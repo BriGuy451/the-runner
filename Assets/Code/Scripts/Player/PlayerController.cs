@@ -118,8 +118,13 @@ public class PlayerController : MonoBehaviour {
   }
 
   private void Update() {
-    PlayerLook();
+    // PlayerLook();
+    PlayerLook(true);
     PlayerMovement();
+
+  }
+
+  void LateUpdate() {
 
   }
 
@@ -135,9 +140,11 @@ public class PlayerController : MonoBehaviour {
       Debug.Log("Horizontal: " + lookAxis.Item2);
     }
 
+    // multiply axis values by look speed.
     float verticalAxisMovement = lookAxis.Item1 * lookSpeed;
     float horizontalAxisMovement = lookAxis.Item2 * lookSpeed;
 
+    // get current values for the player gameObject rotation, convert from quaternion to euler angle for ease of use
     Quaternion currentRotation = transform.rotation;
     Vector3 currentEulerAngles = currentRotation.eulerAngles;
 
@@ -148,6 +155,33 @@ public class PlayerController : MonoBehaviour {
     currentEulerAngles.y += horizontalAxisMovement * Time.deltaTime; // around y axis, which is left & right rotation
 
     currentRotation = Quaternion.Euler(currentEulerAngles.x, currentEulerAngles.y, currentEulerAngles.z);
+    transform.rotation = currentRotation;
+  }
+
+  float verticalAxisMovement = 0;
+  float horizontalAxisMovement = 0;
+  private void PlayerLook(bool performLerpLogic) {
+    (float, float) lookAxis = gameInputHandler.GetVerticalAndHorizontalLookAxis();
+
+    // multiply axis values by look speed.
+    verticalAxisMovement = Mathf.Lerp(verticalAxisMovement, lookAxis.Item1, 10f * Time.deltaTime);  // does this make a filter for the input value? also what is this snappiness value? 
+    horizontalAxisMovement = Mathf.Lerp(horizontalAxisMovement, lookAxis.Item2, 10f * Time.deltaTime); // does this make a filter for the input value? also what is this snappiness value?
+
+    // get current values for the player gameObject rotation, convert from quaternion to euler angle for ease of use
+    Quaternion currentRotation = transform.rotation;
+    Vector3 currentRotationEulerAngles = currentRotation.eulerAngles;
+    Vector3 toRotationVector = Vector3.zero;
+
+    toRotationVector.x = (currentRotationEulerAngles.x + -verticalAxisMovement); // around x axis, which is up & down rotation || NEED TO FIX THIS INVERSION, NATURAL NUMBER IS INVERTED
+    toRotationVector.y = (currentRotationEulerAngles.y + horizontalAxisMovement); // around y axis, which is left & right rotation
+
+    Quaternion toRotationQuaternion = Quaternion.Euler(toRotationVector.x, toRotationVector.y, toRotationVector.z);
+
+    // Vector3 eulerAngleRotateValue = Vector3.Lerp(currentRotationEulerAngles, toRotationVector, lookSpeed * Time.deltaTime);
+    // Debug.Log($"z axis: {toRotationVector.z} & currentRotationEulerAngles z {currentRotationEulerAngles.z}");
+    // transform.Rotate(toRotationVector);
+
+    currentRotation = Quaternion.Lerp(currentRotation, toRotationQuaternion, lookSpeed * Time.deltaTime);
     transform.rotation = currentRotation;
   }
 
