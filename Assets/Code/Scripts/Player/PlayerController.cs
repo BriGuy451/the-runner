@@ -26,13 +26,6 @@ public class PlayerController : MonoBehaviour {
   // Definite attributes
   [SerializeField] private int health;
 
-  // Possible attributes
-  private int height;
-  private int strength;
-  private int agility;
-  private int perception;
-  private int intellect;
-
   [Header("Player Orientation Properties")]
   /* Player Orientation */
   [SerializeField] private Vector3 playerPosition;
@@ -61,23 +54,97 @@ public class PlayerController : MonoBehaviour {
   private bool isWalking = false;
 
   private void Awake() {
+    // speed initialization 
     lookSpeed = 7f;
+    walkSpeed = 5f;
+    sprintSpeed = 9f;
+    crouchSpeed = 3f;
+    slideSpeed = 7f;
+    jumpSpeed = 5f;
+    diveSpeed = 5f;
+
+    // positional initialization
+    playerPosition = transform.position;
+    playerRotation = transform.rotation;
+    playerScale = transform.localScale;
+
+    // camera reference
+    currentCamera = GetComponentInChildren<Camera>();
+
+    // state initialization
+    characterState = MovementEnum.CharacterState.STANDING;
+    movementAction = MovementEnum.MovementAction.IDLE;
   }
 
   private void Start() {
 
     GameInputHandler.Instance.JumpPerformed += Player_OnJumpPerformed;
+
     GameInputHandler.Instance.CrouchPerformed += Player_OnCrouchPerformed;
+    GameInputHandler.Instance.CrouchCancelled += Player_OnCrouchCancelled;
 
     GameInputHandler.Instance.SprintPerformed += Player_OnSprintPerformed;
+    GameInputHandler.Instance.SprintCanceled += Player_OnSprintCancelled;
 
     GameInputHandler.Instance.DivePerformed += Player_OnDivePerformed;
 
     GameInputHandler.Instance.SlidePerformed += Player_OnSlidePerformed;
   }
 
+  private void Update() {
+    // PlayerLook();
+    PlayerMovement();
+  }
 
-  bool logInputEvents = false;
+  /* Problems with PlayerLook: 
+    1) There are no constraints on up or down rotation angle.
+    2) How to get a little dot cursor in the middle.
+  */
+  private float verticalAxisLookMovement = 0;
+  private float horizontalAxisLookMovement = 0;
+  private void PlayerLook() {
+    (float, float) lookAxis = gameInputHandler.GetVerticalAndHorizontalLookAxis();
+
+    // filter raw input data with linear interpolation to create a smoother value transition [low filter pass, makes data less noisy]
+    float mouseSnappiness = 10; // this number makes the mouse movement tighter for interpolate value in the lerp
+    verticalAxisLookMovement = Mathf.Lerp(verticalAxisLookMovement, lookAxis.Item1, mouseSnappiness * Time.deltaTime);  // does this make a filter for the input value? also what is this snappiness value? 
+    horizontalAxisLookMovement = Mathf.Lerp(horizontalAxisLookMovement, lookAxis.Item2, mouseSnappiness * Time.deltaTime); // does this make a filter for the input value? also what is this snappiness value?
+
+    // get current values for the player gameObject rotation, convert from quaternion to euler angle for ease of use
+    Quaternion currentRotation = playerRotation;
+    Vector3 currentRotationEulerAngles = currentRotation.eulerAngles;
+    Vector3 toRotationVector = Vector3.zero;
+
+    toRotationVector.x = currentRotationEulerAngles.x + -verticalAxisLookMovement; // around x axis, which is up & down rotation || NEED TO FIX THIS INVERSION, NATURAL NUMBER IS INVERTED
+    toRotationVector.y = currentRotationEulerAngles.y + horizontalAxisLookMovement; // around y axis, which is left & right rotation
+
+    Quaternion toRotationQuaternion = Quaternion.Euler(toRotationVector.x, toRotationVector.y, toRotationVector.z); // convert modified euler angles to quaternion type to pass to Quaternion Lerp function.
+
+    // lerp rotation and assign the rotation change to the transform of the player game object.
+    currentRotation = Quaternion.Lerp(currentRotation, toRotationQuaternion, lookSpeed * Time.deltaTime);
+    transform.rotation = currentRotation;
+
+    // update playerRotation variable with current rotation values
+    playerRotation = currentRotation;
+  }
+
+  private void PlayerMovement() {
+    Vector2 playerMovementInput = gameInputHandler.GetMovementFromKeyboard();
+    Debug.Log($"PlayerMovementInput: X = {playerMovementInput.x} | Z = {playerMovementInput.y}");
+  }
+
+  private bool logInputEvents = false;
+  private void Player_OnCrouchPerformed(object sender, EventArgs e) {
+    isCrouched = true;
+    if (logInputEvents)
+      Debug.Log("OnCrouchPerformed isCrouched: " + isCrouched);
+  }
+  private void Player_OnCrouchCancelled(object sender, EventArgs e) {
+    isCrouched = false;
+    if (logInputEvents)
+      Debug.Log("OnCrouchCancelled isCrouched: " + isCrouched);
+  }
+
   private void Player_OnSprintPerformed(object sender, EventArgs e) {
     if (isWalking) isSprinting = true;
     if (logInputEvents)
@@ -105,88 +172,5 @@ public class PlayerController : MonoBehaviour {
     if (!isJumping) isJumping = true;
     if (logInputEvents)
       Debug.Log("OnJumpPerformed isJumping: " + isJumping);
-  }
-  private void Player_OnCrouchPerformed(object sender, EventArgs e) {
-    isCrouched = true;
-    if (logInputEvents)
-      Debug.Log("OnCrouchPerformed isCrouched: " + isCrouched);
-  }
-  private void Player_OnCrouchCancelled(object sender, EventArgs e) {
-    isCrouched = false;
-    if (logInputEvents)
-      Debug.Log("OnCrouchCancelled isCrouched: " + isCrouched);
-  }
-
-  private void Update() {
-    // PlayerLook();
-    PlayerLook(true);
-    PlayerMovement();
-
-  }
-
-  void LateUpdate() {
-
-  }
-
-  private void FixedUpdate() {
-
-  }
-
-  private void PlayerLook() {
-    (float, float) lookAxis = gameInputHandler.GetVerticalAndHorizontalLookAxis();
-
-    if (logInputEvents) {
-      Debug.Log("Vertical: " + lookAxis.Item1);
-      Debug.Log("Horizontal: " + lookAxis.Item2);
-    }
-
-    // multiply axis values by look speed.
-    float verticalAxisMovement = lookAxis.Item1 * lookSpeed;
-    float horizontalAxisMovement = lookAxis.Item2 * lookSpeed;
-
-    // get current values for the player gameObject rotation, convert from quaternion to euler angle for ease of use
-    Quaternion currentRotation = transform.rotation;
-    Vector3 currentEulerAngles = currentRotation.eulerAngles;
-
-    Debug.Log("1: " + verticalAxisMovement);
-    Debug.Log("2: " + horizontalAxisMovement);
-
-    currentEulerAngles.x += -verticalAxisMovement * Time.deltaTime; // around x axis, which is up & down rotation || NEED TO FIX THIS INVERSION, NATURAL NUMBER IS INVERTED
-    currentEulerAngles.y += horizontalAxisMovement * Time.deltaTime; // around y axis, which is left & right rotation
-
-    currentRotation = Quaternion.Euler(currentEulerAngles.x, currentEulerAngles.y, currentEulerAngles.z);
-    transform.rotation = currentRotation;
-  }
-
-  float verticalAxisMovement = 0;
-  float horizontalAxisMovement = 0;
-  private void PlayerLook(bool performLerpLogic) {
-    (float, float) lookAxis = gameInputHandler.GetVerticalAndHorizontalLookAxis();
-
-    // multiply axis values by look speed.
-    verticalAxisMovement = Mathf.Lerp(verticalAxisMovement, lookAxis.Item1, 10f * Time.deltaTime);  // does this make a filter for the input value? also what is this snappiness value? 
-    horizontalAxisMovement = Mathf.Lerp(horizontalAxisMovement, lookAxis.Item2, 10f * Time.deltaTime); // does this make a filter for the input value? also what is this snappiness value?
-
-    // get current values for the player gameObject rotation, convert from quaternion to euler angle for ease of use
-    Quaternion currentRotation = transform.rotation;
-    Vector3 currentRotationEulerAngles = currentRotation.eulerAngles;
-    Vector3 toRotationVector = Vector3.zero;
-
-    toRotationVector.x = (currentRotationEulerAngles.x + -verticalAxisMovement); // around x axis, which is up & down rotation || NEED TO FIX THIS INVERSION, NATURAL NUMBER IS INVERTED
-    toRotationVector.y = (currentRotationEulerAngles.y + horizontalAxisMovement); // around y axis, which is left & right rotation
-
-    Quaternion toRotationQuaternion = Quaternion.Euler(toRotationVector.x, toRotationVector.y, toRotationVector.z);
-
-    // Vector3 eulerAngleRotateValue = Vector3.Lerp(currentRotationEulerAngles, toRotationVector, lookSpeed * Time.deltaTime);
-    // Debug.Log($"z axis: {toRotationVector.z} & currentRotationEulerAngles z {currentRotationEulerAngles.z}");
-    // transform.Rotate(toRotationVector);
-
-    currentRotation = Quaternion.Lerp(currentRotation, toRotationQuaternion, lookSpeed * Time.deltaTime);
-    transform.rotation = currentRotation;
-  }
-
-  private void PlayerMovement() {
-    Vector2 playerMovementInput = gameInputHandler.GetMovementFromKeyboard();
-
   }
 }
