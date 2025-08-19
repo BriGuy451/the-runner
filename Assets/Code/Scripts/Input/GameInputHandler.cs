@@ -39,7 +39,7 @@ namespace InputSystem {
       inputActions.Enable();
 
       inputActions.Player.Crouch.performed += Player_CrouchPerformed;
-      inputActions.Player.Crouch.performed += Player_CrouchCancelled;
+      inputActions.Player.Crouch.canceled += Player_CrouchCancelled;
 
       inputActions.Player.Sprint.performed += Player_SprintPerformed;
       inputActions.Player.Sprint.canceled += Player_SprintCanceled;
